@@ -55,47 +55,29 @@
                                           (and (= ya yb) (< xa xb)) true
                                           :else false))))
           sorted-points (sort bottom-left-comp points)
-          pvar (println "Sorted:" sorted-points)
           initial-point (first sorted-points) ; start with bottom leftmost point
 
-
           ; There are two criteria for selecting a new point, before we reach the apex
-          smallest-pos-val (fn [polar-coords] (println "small-pos") (let [pos-points (filter #(non-neg? (second %)) polar-coords)]
-                                                (if (empty? pos-points)
-                                                    nil
-                                                    (first (sort-by second < pos-points)))))
+          smallest-pos-val (fn [polar-coords] (let [pos-points (filter #(non-neg? (second %)) polar-coords)]
+                                                (first (sort-by second < pos-points))))
           ; And after reaching the apex
-          largest-neg-val (fn [polar-coords] (println "larg-neg") (let [neg-points (filter #(neg? (second %)) polar-coords)]
-                                                (if (empty? neg-points)
-                                                    nil
-                                                    (first (sort-by second < neg-points)))))]
+          largest-neg-val (fn [polar-coords] (let [neg-points (filter #(neg? (second %)) polar-coords)]
+                                                (first (sort-by second < neg-points))))]
 
       (loop [current-point initial-point convex-set [initial-point] find-point smallest-pos-val reached-apex false]
         (let [cart-to-polar (reduce merge
                                     (map (fn [point] {(conv-cart-polar current-point point)  point})
                                          (remove #(= current-point %) sorted-points)))
-              pvar (println "Current-Point" current-point)
-              pvar (println "cart-to-polar:" cart-to-polar)
               polar-coords (extract cart-to-polar key)
               polar-angles (extract polar-coords second)
               reached-apex (or reached-apex
                                (every? non-pos? polar-angles))
-              pvar (print "reached apex?" reached-apex)
               find-point (if reached-apex
                             largest-neg-val
                             smallest-pos-val)
-              ; wrapping-ccw (if reached-apex
-              ;               false
-              ;               wrapping-ccw)
 
-              pvar (println "Polar Coods:" cart-to-polar)
               next-point-polar (find-point polar-coords)
-              pvar (println "Next Polar:" next-point-polar)
-              ; pvar (println "Candidate Next Point:" candidate-next-point)
-              ; find-point (if (nil? candidate-next-point) largest-neg-val smallest-pos-val)
-              ; next-point-polar (if (nil? candidate-next-point) (find-point polar-coords) candidate-next-point)
-              next-point (cart-to-polar next-point-polar)
-              pvar (println "Actual Next Point:" next-point "\n")]
+              next-point (cart-to-polar next-point-polar)]
           (cond
             (= initial-point next-point) convex-set
 

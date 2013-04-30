@@ -1,3 +1,21 @@
+(ns prob-clojure.graphics)
+
+(defn non-neg?
+  [n]
+  (>= n 0))
+
+(defn non-pos?
+  [n]
+  (<= n 0))
+
+(defn vec-f
+    "Like merge-with but for vectors"
+  [f v1 v2]
+  (loop [index 0 merged-vec []]
+    (if (= index (count v1))
+      merged-vec
+      (recur (inc index) (conj merged-vec (f (nth v1 index) (nth v2 index)))))))
+
 (defn conv-cart-polar
   "Convert a point to polar coordinates around a pole"
   [pole point]
@@ -13,8 +31,6 @@
     (if (= len1 len2)
       (compare (.toLowerCase s1) (.toLowerCase s2))
       (- len2 len1))))
-
-(def c-comp (comparator b-comp))
 
 (defn extract
   "For list of maps, extract a key"
@@ -44,39 +60,52 @@
 
 
           ; There are two criteria for selecting a new point, before we reach the apex
-          smallest-pos-val (fn [polar-coords] (let [pos-points (filter #(pos? (second %)) polar-coords)]
+          smallest-pos-val (fn [polar-coords] (println "small-pos") (let [pos-points (filter #(non-neg? (second %)) polar-coords)]
                                                 (if (empty? pos-points)
                                                     nil
-                                                    (first (sort-by second > pos-points)))))
+                                                    (first (sort-by second < pos-points)))))
           ; And after reaching the apex
-          largest-neg-val (fn [polar-coords] (let [neg-points (filter #(neg? (second %)) polar-coords)]
+          largest-neg-val (fn [polar-coords] (println "larg-neg") (let [neg-points (filter #(neg? (second %)) polar-coords)]
                                                 (if (empty? neg-points)
                                                     nil
                                                     (first (sort-by second < neg-points)))))]
 
-      (loop [point initial-point convex-set [initial-point] find-point smallest-pos-val]
+      (loop [current-point initial-point convex-set [initial-point] find-point smallest-pos-val reached-apex false]
         (let [cart-to-polar (reduce merge
-                                    (map (fn [point] {(conv-cart-polar initial-point point) point})
-                                         (remove #(= initial-point %) sorted-points)))
+                                    (map (fn [point] {(conv-cart-polar current-point point)  point})
+                                         (remove #(= current-point %) sorted-points)))
+              pvar (println "Current-Point" current-point)
               pvar (println "cart-to-polar:" cart-to-polar)
-              polar-angles (extract cart-to-polar key)
-              pvar (println "Polar Angles:" polar-angles)
-              candidate-next-point (find-point polar-angles)
-              pvar (println "Candidate Next Point:" candidate-next-point)
-              find-point (if (nil? candidate-next-point) largest-neg-val smallest-pos-val)
-              next-point-polar (if (nil? candidate-next-point) (find-point polar-angles) candidate-next-point)
+              polar-coords (extract cart-to-polar key)
+              polar-angles (extract polar-coords second)
+              reached-apex (or reached-apex
+                               (every? non-pos? polar-angles))
+              pvar (print "reached apex?" reached-apex)
+              find-point (if reached-apex
+                            largest-neg-val
+                            smallest-pos-val)
+              ; wrapping-ccw (if reached-apex
+              ;               false
+              ;               wrapping-ccw)
+
+              pvar (println "Polar Coods:" cart-to-polar)
+              next-point-polar (find-point polar-coords)
+              pvar (println "Next Polar:" next-point-polar)
+              ; pvar (println "Candidate Next Point:" candidate-next-point)
+              ; find-point (if (nil? candidate-next-point) largest-neg-val smallest-pos-val)
+              ; next-point-polar (if (nil? candidate-next-point) (find-point polar-coords) candidate-next-point)
               next-point (cart-to-polar next-point-polar)
-              pvar (println "Actual Next Point:" next-point)]
+              pvar (println "Actual Next Point:" next-point "\n")]
           (cond
             (= initial-point next-point) convex-set
 
             :else
-            (recur next-point (conj convex-set next-point) find-point)))))))
+            (recur next-point (conj convex-set next-point) find-point reached-apex)))))))
  
-(defn sample-wo-replacement
-  "Select n unique points"
-  {:pre [(>= (count coll) n)]}
-  [coll n])
+; (defn sample-wo-replacement
+;   "Select n unique points"
+;   {:pre [(>= (count coll) n)]}
+;   [coll n])
 
 (defn vec-f
     "Like merge-with but for vectors"
@@ -136,10 +165,10 @@
 (defn point-in-poly?
   "is the point outside the polygon?"
   [poly point]
-  (not (point-out-poly poly point)))
+  (not (point-out-poly? poly point)))
 
-; What about
-(defn set-/)
+; ; What about
+; (defn set-/)
 
 (defn try-until
   "Keep doing f until pred f"
@@ -150,27 +179,30 @@
   (let [x (f)]
     (if (p x) x (recur f p))))
 
-(fn [poly] (every? #(outside? (convex-hull poly) %)
-                                                    (set- points poly))
-
-(defn gen-simple-poly
-  "Generate simple polygon in n-dims dimensions"
-  [n-dims]
-  (let [n-points (rand-int 10)
-        ; TODO: test for colinearity
-        points (repeatedly n-points #(repeatedly n-dims rand))
-        initial-poly (gen-until (fn [poly] (every? #(point-out-poly? (convex-hull poly) %)
-                                                    (set- points poly)))
-                                #(uniform-select-n points 3))]
-  (loop [poly initial-poly]
-    (cond
-      (= (count poly) n-points) poly ;no more points to add
+; (defn gen-simple-poly
+;   "Generate simple polygon in n-dims dimensions"
+;   [n-dims]
+;   (let [n-points (rand-int 10)
+;         ; TODO: test for colinearity
+;         points (repeatedly n-points #(repeatedly n-dims rand))
+;         initial-poly (gen-until (fn [poly] (every? #(point-out-poly? (convex-hull poly) %)
+;                                                     (set- points poly)))
+;                                 #(uniform-select-n points 3))]
+;   (loop [poly initial-poly]
+;     (cond
+;       (= (count poly) n-points) poly ;no more points to add
       
-      :else
-      (let [ss (filter (fn [point] (every? #(point-out-poly? (convex-hull (set-u poly point)) %)
-                                                      (set- points (set-u poly point))))
-                       (set- points poly))
-            s (random-nth s)
-            ;2. Find completely visible edge
-            ]
-        (recur exp-poly))))))
+;       :else
+;       (let [ss (filter (fn [point] (every? #(point-out-poly? (convex-hull (set-u poly point)) %)
+;                                                       (set- points (set-u poly point))))
+;                        (set- points poly))
+;             s (random-nth s)
+;             ;2. Find completely visible edge
+;             ]
+;         (recur exp-poly))))))
+
+(def hull (convex-hull-gf [[0.0 0.0] [1.0 0.0] [1.0 1.0] [1.5 0.5] [0.0 1.0]]))
+
+(println "HULL IS" hull)
+
+(defn -main[])
